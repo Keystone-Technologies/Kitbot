@@ -2,7 +2,6 @@ package Mojolicious::Plugin::Slackbot;
 use Mojo::Base 'Mojolicious::Plugin';
 
 use Mojo::Loader;
-use Mojo::Redis2;
 
 has namespace => join '::', __PACKAGE__;
 has params => sub { [qw/token team_id channel_id channel_name timestamp user_id user_name trigger_word/] };
@@ -39,44 +38,25 @@ sub register {
     $c->render_later;
     $c->app->log->debug("Slacking!");
 
-    #my $text = lc($c->param('text'));
-    #if ( my ($bot) = grep { $text =~ /\b$_\b/ } @bots ) {
-    #  $c->param(trigger_word => $bot);
-    #  if ( $text =~ /\b(hi|hello|howdy|hey|yo|on)\b/ ) {
-    #    $c->slackbot->redis->set('autobot' => $bot);
-    #    $c->render($c->slackbot->interp($c->slackbot->redis->hget($bot => 'awaken') || 'Hello, #$channel_name'));
-    #  } elsif ( $text =~ /\b(go\s+away|shut\s+(up|it)|pipe|off)\b/ ) {
-    #    $c->slackbot->redis->set('autobot' => '');
-    #    $c->render($c->slackbot->interp($c->slackbot->redis->hget($bot => 'snooze') || 'Good-bye, #$channel_name'));
-    #  } else {
-    #    $c->slackbot->$bot->render($text);
-    #  }
-    #} elsif ( my $autobot = $c->slackbot->redis->get('autobot') ) {
-    #  $c->slackbot->$autobot->render($text);
-    #} elsif ( my ($failed_bot) = grep { $text =~ /\b$_\b/ } @failed_bots ) {
-    #  $c->app->log->debug(sprintf 'User %s in %s said "%s" and the %s bot needed to process it failed.', (map { $c->param($_) } qw/user_name channel_name text/), $failed_bot);
-    #  $c->render(text => '', status => 204);
-    #} else {
-    #  $c->app->log->debug(sprintf 'User %s in %s said "%s" and I don\'t know what to do with that.', map { $c->param($_) } qw/user_name channel_name text/);
-    # $c->render(text => '', status => 204);
-    #}
-
     my ($passed, $rendered, $now, $jobs, $later) = $self->process($c);
     if ( @$now ) {
+      $c->app->log->info(sprintf "Rendering %s now", $#$now+1);
       $c->render(json => {text => join "\n", map { $_->[1] } @$now}) unless @$rendered;
     } elsif ( @$jobs ) {
+      $c->app->log->info(sprintf "Queued %s", $#$jobs+1);
       $c->render(text => '', status => 202) unless @$rendered;
     } elsif ( !@$now && !@$later && !@$jobs ) {
       if ( @$passed ) {
+        $c->app->log->info(sprintf "%s bots passed", $#$passed+1);
         $c->render(text => '', status => 204) unless @$rendered;
       } else {
+        $c->app->log->info("No bots were processed");
         $c->render(text => '', status => 200) unless @$rendered;
       }
+    } else {
+      $c->app->log->info(sprintf "Rendering %s later", $#$later+1);
     }
   });
-
-  #$app->helper('slackbot.redis' => sub { shift->stash->{redis} ||= Mojo::Redis2->new });
-
 }
 
 sub process {
