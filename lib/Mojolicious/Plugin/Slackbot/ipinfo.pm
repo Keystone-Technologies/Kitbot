@@ -10,12 +10,9 @@ sub render {
   my $c = $self->c;
   my ($ip) = ($self->text =~ /([\d+\.]+)/);
   return unless $ip;
-  $self->ua->get("http://ipinfo.io/$ip/json" => sub {
-    my ($ua, $tx) = @_;
-    my $org = $tx->res->json->{org} || 'Unknown';
-    $self->respond("$ip belongs to $org");
-  });
-  $self;
+  my $tx = $self->ua->get("http://ipinfo.io/$ip/json");
+  my $org = $tx->res->json->{org} || 'Unknown';
+  $self->respond("$ip belongs to $org");
 }
 
 1;

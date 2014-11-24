@@ -8,16 +8,15 @@ has responses => sub { [] };
 has redis => sub { shift->{redis} ||= Mojo::Redis2->new };
 has me => sub { ((split /::/, ref shift)[-1]) };
 has params => sub { [qw/token team_id channel_id channel_name timestamp user_id user_name text trigger_word/] };
-has token => sub { shift->app->param('token') || '' };
-has team_id => sub { shift->c->param('team_id') || '' };
-has channel_id => sub { shift->c->param('channel_id') || '' };
-has channel_name => sub { shift->c->param('channel_name') || '[no_channel]' };
-has timestamp => sub { shift->c->param('timestamp') || '' };
-has user_id => sub { shift->c->param('user_id') || '' };
-has user_name => sub { shift->c->param('user_name') || '[no_user]' };
-has text => sub { shift->c->param('text') || '' };
-has trigger_word => sub { shift->c->param('trigger_word') || '' };
-has my_tasks => sub { [grep { /^$_:/ } shift->c->minion->tasks] };
+has token => sub { shift->app->param('token') };
+has team_id => sub { shift->c->param('team_id') };
+has channel_id => sub { shift->c->param('channel_id') };
+has channel_name => sub { shift->c->param('channel_name') };
+has timestamp => sub { shift->c->param('timestamp') };
+has user_id => sub { shift->c->param('user_id') };
+has user_name => sub { shift->c->param('user_name') };
+has text => sub { shift->c->param('text') };
+has trigger_word => sub { shift->c->param('trigger_word') };
 
 sub triggered {
   my $self = shift;

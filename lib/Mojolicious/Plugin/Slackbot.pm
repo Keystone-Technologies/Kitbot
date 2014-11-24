@@ -11,6 +11,10 @@ sub register {
   my ($self, $app) = @_;
 
   $app->plugin(Minion => {File => 'minion.db'});
+  $app->minion->add_task("respond_later" => sub {
+    my ($job, $channel_name, $user_name, $text) = @_;
+    $self->post($job, $channel_name, $user_name, $text);
+  });
   $app->helper(redis => sub { shift->stash->{redis} ||= Mojo::Redis2->new });
   $app->helper(job_timer => sub {
     my ($c, $task, $timer) = @_;
@@ -34,7 +38,7 @@ sub register {
     }
   }
 
-  $app->routes->post('/slackbot' => sub {
+  $app->routes->post('/slackbot' => {channel_name => '[no_channel]', user_name => '[no_user]'} => sub {
     my $c = shift;
 
     unless ( $app->mode eq 'development' ) {
@@ -53,13 +57,13 @@ sub register {
         $c->app->log->debug(sprintf "[%s] Queueing %s in #%s to %s", $task, ($trigger_word?'response':'auto-response'), $c->param('channel_name'), $c->param('user_name'));
         push @{$bots->{tasks}->{$bot}}, [$task => $c->minion->enqueue($task => [$c->param('channel_name'), $c->param('user_name'), $c->param('text')])];
       }
-      $bots->{responses}->{$bot} = $c->slackbot->$bot->render->responses;
+      $bots->{responses}->{$bot} = [grep { $_ } @{$c->slackbot->$bot->render->responses}];
     }
     
-    if ( my @tasks = map { @{$bots->{tasks}->{$_}} } keys %{$bots->{tasks}} ) {
+    if ( my @tasks = grep { $_ } map { @{$bots->{tasks}->{$_}} } keys %{$bots->{tasks}} ) {
       $c->app->log->info(sprintf "Queued %s jobs from %s bots now", $#tasks+1, scalar keys %{$bots->{tasks}});
     }
-    if ( my @responses = map { join "\n", @{$bots->{responses}->{$_}} } keys %{$bots->{responses}} ) {
+    if ( my @responses = grep { $_ } map { join "\n", @{$bots->{responses}->{$_}} } keys %{$bots->{responses}} ) {
       $c->app->log->info(sprintf "Rendering %s responses from %s bots now", $#responses+1, scalar keys %{$bots->{responses}});
       return $c->render(json => {text => join "\n", @responses});
     }
@@ -68,7 +72,7 @@ sub register {
       $c->app->log->info('No direct response from any bot, but you might get some after the jobs are finished');
       $c->render(text => '', status => 202);
     } else {
-      $c->app->log->info('No response from any bot, nor any queued jobs');
+      $c->app->log->info('No responses from any bots, nor any queued up');
       $c->render(text => '', status => 204);
     }
   });
