@@ -5,9 +5,9 @@ use Chatbot::Eliza;
 
 has 'eliza' => sub { Chatbot::Eliza->new };
 
-sub process {
+sub render {
   my $self = shift;
-  $self->eliza->transform($self->text);
+  $self->respond($self->eliza->transform($self->text));
 }
 
 1;
