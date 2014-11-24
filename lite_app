@@ -1,21 +1,10 @@
 #!/usr/bin/env perl
 use Mojolicious::Lite;
 
-#curl -X POST --data-urlencode 'payload={"channel": "#general", "username":
-#"webhookbot", "text": "This is posted to #general and comes from a bot
-#named webhookbot.", "icon_emoji": ":ghost:"}'
-#https://hooks.slack.com/services/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
-
 use lib 'lib';
 
-my $config = plugin 'config' => {
-  default => {
-    slackbot => {
-      name => 'slackbot',
-    },
-  },
-};
-$config->{token} or die "Token configuration missing\n";
+my $config = plugin 'config';
+$config->{slackbot}->{token} or die "Token configuration missing\n";
 
 plugin 'slackbot';
 

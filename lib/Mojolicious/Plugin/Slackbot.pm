@@ -11,10 +11,6 @@ sub register {
   my ($self, $app) = @_;
 
   $app->plugin(Minion => {File => 'minion.db'});
-  $app->minion->add_task("respond_later" => sub {
-    my ($job, $channel_name, $user_name, $text) = @_;
-    $self->post($job, $channel_name, $user_name, $text);
-  });
   $app->helper(redis => sub { shift->stash->{redis} ||= Mojo::Redis2->new });
   $app->helper(job_timer => sub {
     my ($c, $task, $timer) = @_;
@@ -38,15 +34,16 @@ sub register {
     }
   }
 
-  $app->routes->post('/slackbot' => {channel_name => '[no_channel]', user_name => '[no_user]'} => sub {
+  $app->routes->post('/slackbot' => sub {
     my $c = shift;
 
+    #warn Data::Dumper::Dumper({map { $_ => $c->param($_) } $c->param});
     unless ( $app->mode eq 'development' ) {
-      return $c->reply->not_found unless $c->param('token') && $c->param('token') eq $c->config->{token};
+      return $c->reply->not_found unless $c->param('token') && $c->param('token') eq $c->config->{slackbot}->{token};
       return $c->reply->not_found if $c->param('user_name') && $c->param('user_name') eq $c->config->{slackbot}->{name};
     }
 
-    $c->render_later;
+    $c->render_later;    
     my $bots = {};
     foreach my $bot ( @{$self->bots->{loaded}} ) {
       warn "Checking $bot\n";
@@ -54,7 +51,7 @@ sub register {
       warn "Processing $bot\n";
       my $tasks = $c->minion->tasks;
       foreach my $task ( grep { /^$bot:/ } keys %$tasks ) {
-        $c->app->log->debug(sprintf "[%s] Queueing %s in #%s to %s", $task, ($trigger_word?'response':'auto-response'), $c->param('channel_name'), $c->param('user_name'));
+        $c->app->log->debug(sprintf "[%s] Queueing %s in %s to %s", $task, ($trigger_word?'response':'auto-response'), $c->param('channel_name'), $c->param('user_name'));
         push @{$bots->{tasks}->{$bot}}, [$task => $c->minion->enqueue($task => [$c->param('channel_name'), $c->param('user_name'), $c->param('text')])];
       }
       $bots->{responses}->{$bot} = [grep { $_ } @{$c->slackbot->$bot->render->responses}];
