@@ -11,9 +11,10 @@ sub add_tasks {
     $text =~ s/\s*whois\s*//;
     my ($domain) = ($text =~ /<[^\|]+\|([^>]+)>/);
     return unless $domain;
-    $job->app->log->info(sprintf 'Running %s for %s in %s on "%s"', $job->task, $user_name, $channel_name, $domain);
+    $job->app->log->debug(sprintf 'Running %s for %s in %s on "%s"', $job->task, $user_name, $channel_name, $domain);
     my ($expires) = (whois($domain) =~ /^Registrar Registration Expiration Date: (.*?)$/m);
-    $self->post($job, $channel_name, $user_name, "$domain expires $expires");
+    $expires ||= 'unknown';
+    $self->post($job, $channel_name, $user_name, "$domain expiration is $expires");
     $app->job_timer($me => $timer);
   });
 }

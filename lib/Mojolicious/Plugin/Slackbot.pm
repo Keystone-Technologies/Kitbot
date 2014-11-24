@@ -28,49 +28,47 @@ sub register {
       $app->log->error("Error loading Slackbot plugin $plugin");
     } else {
       push @{$self->bots->{loaded}}, $plugin;
-      $module = $module->new;
-      $module->can('add_tasks') and $module->add_tasks($plugin => $app);
-      $app->helper("slackbot.$plugin" => sub { $module->c(shift) });
+      $module->can('add_tasks') and $module->new(c=>shift)->add_tasks($plugin => $app);
+      $app->helper("slackbot.$plugin" => sub { $module->new(c=>shift) });
     }
   }
 
   $app->routes->post('/slackbot' => sub {
     my $c = shift;
 
-    #warn Data::Dumper::Dumper({map { $_ => $c->param($_) } $c->param});
-    unless ( $app->mode eq 'development' ) {
-      return $c->reply->not_found unless $c->param('token') && $c->param('token') eq $c->config->{slackbot}->{token};
-      return $c->reply->not_found if $c->param('user_name') && $c->param('user_name') eq $c->config->{slackbot}->{name};
-    }
+    warn Data::Dumper::Dumper({map { $_ => $c->param($_) } $c->param}) if $app->mode eq 'development';
+    return $c->render(status => 401, text => '') unless $app->mode eq 'development' || ($c->param('token') && $c->param('token') eq $c->config->{slackbot}->{token});
+    return $c->render(status => 204, text => '') if $c->param('user_name') && ($c->param('user_name') eq $c->config->{slackbot}->{name} || $c->param('user_name') eq 'slackbot');
 
     $c->render_later;    
     my $bots = {};
+    $c->app->log->debug(sprintf 'Checking "%s" from %s#%s for triggers...', $c->param('text')||'', $c->param('user_name')||'', $c->param('channel_name')||'');
     foreach my $bot ( @{$self->bots->{loaded}} ) {
-      warn "Checking $bot\n";
+      $c->app->log->debug(sprintf '  %s', $bot);
       next unless my $trigger_word = $c->slackbot->$bot->triggered;
-      warn "Processing $bot\n";
+      $c->app->log->debug(sprintf 'Rendering responses using "%s"', $bot);
       my $tasks = $c->minion->tasks;
       foreach my $task ( grep { /^$bot:/ } keys %$tasks ) {
-        $c->app->log->debug(sprintf "[%s] Queueing %s in %s to %s", $task, ($trigger_word?'response':'auto-response'), $c->param('channel_name'), $c->param('user_name'));
-        push @{$bots->{tasks}->{$bot}}, [$task => $c->minion->enqueue($task => [$c->param('channel_name'), $c->param('user_name'), $c->param('text')])];
+        $c->app->log->debug(sprintf "[%s] Queueing %s in %s to %s", $task, ($trigger_word?'response':'auto-response'), $c->param('channel_name')||'', $c->param('user_name')||'');
+        push @{$bots->{tasks}->{$bot}}, [$task => $c->minion->enqueue($task => [$c->param('channel_name')||'', $c->param('user_name')||'', $c->param('text')||''])];
       }
       $bots->{responses}->{$bot} = [grep { $_ } @{$c->slackbot->$bot->render->responses}];
     }
     
     if ( my @tasks = grep { $_ } map { @{$bots->{tasks}->{$_}} } keys %{$bots->{tasks}} ) {
-      $c->app->log->info(sprintf "Queued %s jobs from %s bots now", $#tasks+1, scalar keys %{$bots->{tasks}});
+      $c->app->log->debug(sprintf "Queued %s jobs from %s bots now", $#tasks+1, scalar keys %{$bots->{tasks}});
     }
     if ( my @responses = grep { $_ } map { join "\n", @{$bots->{responses}->{$_}} } keys %{$bots->{responses}} ) {
-      $c->app->log->info(sprintf "Rendering %s responses from %s bots now", $#responses+1, scalar keys %{$bots->{responses}});
+      $c->app->log->debug(sprintf "Rendering %s responses from %s bots now", $#responses+1, scalar keys %{$bots->{responses}});
       return $c->render(json => {text => join "\n", @responses});
     }
 
     if ( keys %{$bots->{tasks}} ) {
-      $c->app->log->info('No direct response from any bot, but you might get some after the jobs are finished');
-      $c->render(text => '', status => 202);
+      $c->app->log->debug('No direct response from any bot, but you might get some after the jobs are finished');
+      $c->render(status => 202, text => '');
     } else {
-      $c->app->log->info('No responses from any bots, nor any queued up');
-      $c->render(text => '', status => 204);
+      $c->app->log->debug('No responses from any bots, nor any queued up');
+      $c->render(status => 204, text => '');
     }
   });
 }

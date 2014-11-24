@@ -8,14 +8,14 @@ has responses => sub { [] };
 has redis => sub { shift->{redis} ||= Mojo::Redis2->new };
 has me => sub { ((split /::/, ref shift)[-1]) };
 has params => sub { [qw/token team_id channel_id channel_name timestamp user_id user_name text trigger_word/] };
-sub token { shift->c->param('token') }
-sub team_id { shift->c->param('team_id') }
-sub channel_id { shift->c->param('channel_id') }
-sub channel_name { shift->c->param('channel_name') }
-sub timestamp { shift->c->param('timestamp') }
-sub user_id { shift->c->param('user_id') }
-sub user_name { shift->c->param('user_name') }
-sub text { shift->c->param('text') }
+has token => sub { shift->c->param('token') };
+has team_id => sub { shift->c->param('team_id') };
+has channel_id => sub { shift->c->param('channel_id') };
+has channel_name => sub { shift->c->param('channel_name') };
+has timestamp => sub { shift->c->param('timestamp') };
+has user_id => sub { shift->c->param('user_id') };
+has user_name => sub { shift->c->param('user_name') };
+has text => sub { shift->c->param('text') };
 has trigger_word => sub { shift->c->param('trigger_word') };
 
 sub triggered {
@@ -54,7 +54,7 @@ sub render {
 sub post {
   my ($self, $job, $channel_name, $user_name, $text) = @_;
   $user_name ||= 'oh btw';
-  $job->app->log->info(sprintf "Posting results of %s to #%s: %s", $job->task, $channel_name, "$user_name: $text");
+  $job->app->log->debug(sprintf "Posting results of %s to #%s: %s", $job->task, $channel_name, "$user_name: $text");
   if ( $channel_name ) {
     $job->app->ua->post($job->app->config->{slackbot}->{incoming} => json => {channel => '#'.$channel_name, text => "$user_name: $text", username => $job->app->config->{slackbot}->{name}, icon_emoji => 'ghost'});
   } else {
