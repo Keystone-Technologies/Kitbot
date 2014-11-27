@@ -1,4 +1,5 @@
 minion.db
 log
+*.bak
 lite_app.conf
 hypnotoad.pid

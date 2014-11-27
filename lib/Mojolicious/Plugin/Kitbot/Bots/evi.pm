@@ -17,7 +17,7 @@ sub render {
   } else {
     if ( 1 ) {
       return;
-    else {
+    } else {
       $answer = 'Unknown';
     }
   }

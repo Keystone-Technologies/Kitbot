@@ -1,9 +1,22 @@
-package Mojolicious::Plugin::Slackbot::Base;
+package Mojolicious::Plugin::Bots::Base;
 use Mojo::Base -base;
-use Mojo::JSON 'j';
-use Mojo::Redis2;
+
+has 'kitbot';
+
+sub new {
+  my $self = shift->SUPER::new(@_);
+  $self->can('add_tasks') and $self->add_tasks;
+  $self;
+}
+
+1;
+
+__END__
+
+use Slackbot::Jobs;
 
 has 'c';
+has job => sub { Slackbot::Jobs->new };
 has responses => sub { [] };
 has redis => sub { shift->{redis} ||= Mojo::Redis2->new };
 has me => sub { ((split /::/, ref shift)[-1]) };
@@ -49,17 +62,6 @@ sub render {
     }
   }
   $self;
-}
-
-sub post {
-  my ($self, $job, $channel_name, $user_name, $text) = @_;
-  $user_name ||= 'oh btw';
-  $job->app->log->debug(sprintf "Posting results of %s to #%s: %s", $job->task, $channel_name, "$user_name: $text");
-  if ( $channel_name ) {
-    $job->app->ua->post($job->app->config->{slackbot}->{incoming} => json => {channel => '#'.$channel_name, text => "$user_name: $text", username => $job->app->config->{slackbot}->{name}, icon_emoji => 'ghost'});
-  } else {
-    $job->app->ua->post($job->app->config->{slackbot}->{incoming} => json => {text => "$user_name: $text", username => $job->app->config->{slackbot}->{name}, icon_emoji => 'ghost'});
-  }
 }
 
 1;

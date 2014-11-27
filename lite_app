@@ -3,9 +3,7 @@ use Mojolicious::Lite;
 
 use lib 'lib';
 
-my $config = plugin 'config';
-$config->{slackbot}->{token} or die "Token configuration missing\n";
-
-plugin 'slackbot';
+plugin 'config';
+plugin 'kitbot';
 
 app->start;
